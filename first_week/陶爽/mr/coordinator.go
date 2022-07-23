@@ -33,7 +33,7 @@ func (c *Coordinator) TimeTick() {
 		for taskNumber, task := range c.MapTask {
 			if task.State == 1 {
 				c.MapTask[taskNumber].Runtime = c.MapTask[taskNumber].Runtime + 1
-				if c.MapTask[taskNumber].Runtime >= 10 { //超过10个始终滴答，默认认为该任务的主机已经挂了
+				if c.MapTask[taskNumber].Runtime >= 10 { //超过10个始终滴答，默认为该任务的主机崩溃
 					c.MapTask[taskNumber].State = 0
 				}
 			}
