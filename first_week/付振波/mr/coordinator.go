@@ -35,13 +35,13 @@ type Coordinator struct {
 	ReduceFinish chan bool
 }
 
-func (c *Coordinator) TimeTick() {//can't run ,need to modify after studting the "heart map"
+func (c *Coordinator) CheckRuntime() {//can't run ,need to modify after studting the "heart map"
 	c.Mutex.Lock()
-	time.Sleep(time.Second)
+	time.Sleep(time.Second*2)
 	if c.State == 0 {
 		for i, task := range c.CurMapT {
 			if task.State == 1 {
-				c.CurMapT[i].Runtime = c.CurMapT[i].Runtime + 1
+				c.CurMapT[i].Runtime = c.CurMapT[i].Runtime + 2
 				if c.CurMapT[i].Runtime >= 10 { 
 					c.CurMapT[i].State = 0
 					c.MapT <- *task
@@ -52,7 +52,7 @@ func (c *Coordinator) TimeTick() {//can't run ,need to modify after studting the
 	} else if c.State == 1 {
 		for i, task := range c.CurReduceT {
 			if task.State == 1 {
-				c.CurReduceT[i].Runtime = c.CurReduceT[i].Runtime + 1
+				c.CurReduceT[i].Runtime = c.CurReduceT[i].Runtime + 2
 				if c.CurReduceT[i].Runtime >= 10 {
 					c.CurReduceT[i].State = 0
 					c.ReduceT <- *task
@@ -88,7 +88,7 @@ func (c *Coordinator) PushTask(args *TaskRequest, reply *TaskReply) error {
 				MapTask.State = 1
 				MapTask.Runtime = 0
 				c.CurMapT[MapTask.MapId] = &MapTask
-				go c.TimeTick()
+				go c.CheckRuntime()
 				fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>map renwu: %d\n",  c.CurMapT[MapTask.MapId].Runtime)
 			}
 		}
@@ -103,7 +103,7 @@ func (c *Coordinator) PushTask(args *TaskRequest, reply *TaskReply) error {
 				ReduceTask.State = 1
 				ReduceTask.Runtime = 0
 				c.CurReduceT[ReduceTask.ReduceId] = &ReduceTask
-				go c.TimeTick()
+				go c.CheckRuntime()
 				fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>after distributing map task\n")
 			}
 		}
