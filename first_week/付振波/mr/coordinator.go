@@ -1,11 +1,13 @@
 package mr
 
+import "fmt"
 import "log"
 import "net"
 import "os"
 import "net/rpc"
 import "net/http"
 import "sync"
+import "time"
 
 type TaskInfo struct {
 	FileName string
@@ -33,6 +35,35 @@ type Coordinator struct {
 	ReduceFinish chan bool
 }
 
+func (c *Coordinator) TimeTick() {//can't run ,need to modify after studting the "heart map"
+	c.Mutex.Lock()
+	time.Sleep(time.Second)
+	if c.State == 0 {
+		for i, task := range c.CurMapT {
+			if task.State == 1 {
+				c.CurMapT[i].Runtime = c.CurMapT[i].Runtime + 1
+				if c.CurMapT[i].Runtime >= 10 { 
+					c.CurMapT[i].State = 0
+					c.MapT <- *task
+					fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>map %d renwu: %d\n", i , c.CurMapT[i].Runtime)
+				}
+			}
+		}
+	} else if c.State == 1 {
+		for i, task := range c.CurReduceT {
+			if task.State == 1 {
+				c.CurReduceT[i].Runtime = c.CurReduceT[i].Runtime + 1
+				if c.CurReduceT[i].Runtime >= 10 {
+					c.CurReduceT[i].State = 0
+					c.ReduceT <- *task
+					fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>reduce %d renwu: %d\n", i , c.CurMapT[i].Runtime)
+				}
+			}
+		}
+	}
+	c.Mutex.Unlock()
+}
+
 // Your code here -- RPC handlers for the worker to call.
 
 //
@@ -47,60 +78,62 @@ func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
 
 func (c *Coordinator) PushTask(args *TaskRequest, reply *TaskReply) error {
 	//distribute task
-	if c.State == 0 {
-		if len(c.MapT) !=0 {
+	c.Mutex.Lock()
+	if len(c.MapT) !=0 {
+		fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>distributing map task\n")
+		if c.State == 0 {
 			MapTask, ok := <- c.MapT
 			if ok {
 				reply.Task = MapTask
 				MapTask.State = 1
 				MapTask.Runtime = 0
-				c.Mutex.Lock()
 				c.CurMapT[MapTask.MapId] = &MapTask
-				c.Mutex.Unlock()
+				go c.TimeTick()
+				fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>map renwu: %d\n",  c.CurMapT[MapTask.MapId].Runtime)
 			}
 		}
 	}
 	if c.State == 1 {
+
+		fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>distributing Reduce task\n")
 		if len(c.ReduceT) !=0 {
 			ReduceTask, ok := <- c.ReduceT
 			if ok {
 				reply.Task = ReduceTask
 				ReduceTask.State = 1
 				ReduceTask.Runtime = 0
-				c.Mutex.Lock()
 				c.CurReduceT[ReduceTask.ReduceId] = &ReduceTask
-				c.Mutex.Unlock()
+				go c.TimeTick()
+				fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>after distributing map task\n")
 			}
 		}
 	}
 	reply.State = c.State
 	reply.MaxMaps = c.MaxMaps
 	reply.MaxReduces = c.MaxReduces
+	c.Mutex.Unlock()
 
 	return nil
 }
 
 func (c *Coordinator) GetFinish(args *FinishRequest, reply *FinishReply) error { 
 	//the data race happended. why the MUTEX not work? I don't Know the reason after debugging once by once
-	
+	c.Mutex.Lock()
 	if len(c.MapFinish) != c.MaxMaps {
 		c.MapFinish <- true
-		c.Mutex.Lock()
 		c.CurMapT[args.Id].State = 2
 		if (len(c.MapFinish) == c.MaxMaps){
 			c.State = 1
 		}
-		c.Mutex.Unlock()
 
 	}else if len(c.ReduceFinish) != c.MaxReduces {
 		c.ReduceFinish <- true
-		c.Mutex.Lock()
 		c.CurReduceT[args.Id].State = 2
 		if (len(c.ReduceFinish) == c.MaxReduces){
 			c.State = 2
 		}
-		c.Mutex.Unlock()
 	}
+	c.Mutex.Unlock()
 	return nil
 }
 
@@ -127,37 +160,11 @@ func (c *Coordinator) server() {
 func (c *Coordinator) Done() bool {
 	ret := false
 
-	// Your code here.
+	// // Your code here.
 	if c.State == 2 {
 		ret = true
 	}
 	return ret
-}
-
-func (c *Coordinator) TimeTick() {//can't run ,need to modify after studting the "heart map"
-	c.Mutex.Lock()
-	if c.State == 0 {
-		for i, task := range c.CurMapT {
-			if task.State == 1 {
-				c.CurMapT[i].Runtime = c.CurMapT[i].Runtime + 1
-				if c.CurMapT[i].Runtime >= 10 { 
-					c.CurMapT[i].State = 0
-					c.MapT <- *task
-				}
-			}
-		}
-	} else if c.State == 1 {
-		for i, task := range c.CurReduceT {
-			if task.State == 1 {
-				c.CurReduceT[i].Runtime = c.CurReduceT[i].Runtime + 1
-				if c.CurReduceT[i].Runtime >= 10 {
-					c.CurReduceT[i].State = 0
-					c.ReduceT <- *task
-				}
-			}
-		}
-	}
-	c.Mutex.Unlock()
 }
 
 //
