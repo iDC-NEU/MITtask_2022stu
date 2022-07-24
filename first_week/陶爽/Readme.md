@@ -1,5 +1,9 @@
 1.按照课程的引导首先尝试通过rpc通信完成worker和coordinator之间的通信，了解了如何获取任务的过程。
+
 2.设置rpc文件中TaskResponse的状态分别为0：map,1：reduce,2：未分配任务。worker根据任务的不同状态执行不同的操作，初始将TaskResponse中状态设置为2，表示未分配，然后根据当前机器的状态决定分配map还是reduce任务。判断分配什么任务由coordinator定义的maptask和reducetask集合来决定，当maptask中的文件还未分配完时，就给worker分配map任务，maptask任务分配完时，给worker分配reduce任务。为了判断task是否完成，对task也设置了状态：0表示没工作，1表示正在工作，2表示工作完成。
+
 3.当所有任务完成之后，coordinator的Done函数返回true,表示工作结束。
+
 4.为了通过crash测试，加入了timetick，根据课程建议，当worker的运行时间超过十秒，还未完成对应的map或者reduce任务，则认为该worker宕机了，将该任务重新分配给其他worker处理。
+
 目前能够通过测试，但是仍然存在数据竞争，通过加锁的方式并没有完全解决这个问题。
