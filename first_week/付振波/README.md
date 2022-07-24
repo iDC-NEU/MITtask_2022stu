@@ -10,8 +10,6 @@ lab1: MapReduce
 
 ng
 
-​			5、未通过crash和early exit测试，开始考虑worker超时问题，但是使用TIMETICKER未果，需要study GO再完善
-
-结果：通过大部分测试，实现了mapreduce，但是未成功实现容错(worker失败)的问题，实现的函数不run，需要debug
+结果：通过测试，实现了mapreduce，但是容错(worker失败)的问题有时可能出现，实现的函数不run，需要debug
 
 总结：分布式编成，代码容易写，debug很费劲。第一次接触多进程编程和GO语言，写代码时错了太多语法错误和有关数据抢占的问题。

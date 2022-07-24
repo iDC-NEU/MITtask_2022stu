@@ -36,23 +36,23 @@ type Coordinator struct {
 }
 
 func (c *Coordinator) CheckRuntime() {//can't run ,need to modify after studting the "heart map"
+	time.Sleep(time.Second)
 	c.Mutex.Lock()
-	time.Sleep(time.Second*2)
 	if c.State == 0 {
 		for i, task := range c.CurMapT {
 			if task.State == 1 {
-				c.CurMapT[i].Runtime = c.CurMapT[i].Runtime + 2
+				c.CurMapT[i].Runtime = c.CurMapT[i].Runtime + 1
 				if c.CurMapT[i].Runtime >= 10 { 
 					c.CurMapT[i].State = 0
 					c.MapT <- *task
-					fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>map %d renwu: %d\n", i , c.CurMapT[i].Runtime)
 				}
+				// fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>map %d renwu: %d\n", i , c.CurMapT[i].Runtime)
 			}
 		}
 	} else if c.State == 1 {
 		for i, task := range c.CurReduceT {
 			if task.State == 1 {
-				c.CurReduceT[i].Runtime = c.CurReduceT[i].Runtime + 2
+				c.CurReduceT[i].Runtime = c.CurReduceT[i].Runtime + 1
 				if c.CurReduceT[i].Runtime >= 10 {
 					c.CurReduceT[i].State = 0
 					c.ReduceT <- *task
@@ -80,22 +80,16 @@ func (c *Coordinator) PushTask(args *TaskRequest, reply *TaskReply) error {
 	//distribute task
 	c.Mutex.Lock()
 	if len(c.MapT) !=0 {
-		fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>distributing map task\n")
-		if c.State == 0 {
-			MapTask, ok := <- c.MapT
-			if ok {
-				reply.Task = MapTask
-				MapTask.State = 1
-				MapTask.Runtime = 0
-				c.CurMapT[MapTask.MapId] = &MapTask
-				go c.CheckRuntime()
-				fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>map renwu: %d\n",  c.CurMapT[MapTask.MapId].Runtime)
-			}
+		MapTask, ok := <- c.MapT
+		if ok {
+			reply.Task = MapTask
+			MapTask.State = 1
+			MapTask.Runtime = 0
+			c.CurMapT[MapTask.MapId] = &MapTask
+			go c.CheckRuntime()
 		}
 	}
 	if c.State == 1 {
-
-		fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>distributing Reduce task\n")
 		if len(c.ReduceT) !=0 {
 			ReduceTask, ok := <- c.ReduceT
 			if ok {
@@ -104,7 +98,6 @@ func (c *Coordinator) PushTask(args *TaskRequest, reply *TaskReply) error {
 				ReduceTask.Runtime = 0
 				c.CurReduceT[ReduceTask.ReduceId] = &ReduceTask
 				go c.CheckRuntime()
-				fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>after distributing map task\n")
 			}
 		}
 	}
@@ -122,7 +115,14 @@ func (c *Coordinator) GetFinish(args *FinishRequest, reply *FinishReply) error {
 	if len(c.MapFinish) != c.MaxMaps {
 		c.MapFinish <- true
 		c.CurMapT[args.Id].State = 2
-		if (len(c.MapFinish) == c.MaxMaps){
+		temp := 1
+		for _, task := range c.CurMapT {
+			if task.State != 2 {
+				c.State = 0
+				temp = 0
+			}
+		}
+		if (len(c.MapFinish) == c.MaxMaps && temp == 1 ){
 			c.State = 1
 		}
 
