@@ -1,6 +1,5 @@
 package mr
 
-import "fmt"
 import "log"
 import "net"
 import "os"
@@ -48,16 +47,16 @@ func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
 
 func (c *Coordinator) PushTask(args *TaskRequest, reply *TaskReply) error {
 	//distribute task
-	c.Mutex.Lock()
 	if c.State == 0 {
 		if len(c.MapT) !=0 {
 			MapTask, ok := <- c.MapT
 			if ok {
-				fmt.Printf("%v\n",reply.Task.FileName)
 				reply.Task = MapTask
 				MapTask.State = 1
 				MapTask.Runtime = 0
+				c.Mutex.Lock()
 				c.CurMapT[MapTask.MapId] = &MapTask
+				c.Mutex.Unlock()
 			}
 		}
 	}
@@ -68,7 +67,9 @@ func (c *Coordinator) PushTask(args *TaskRequest, reply *TaskReply) error {
 				reply.Task = ReduceTask
 				ReduceTask.State = 1
 				ReduceTask.Runtime = 0
+				c.Mutex.Lock()
 				c.CurReduceT[ReduceTask.ReduceId] = &ReduceTask
+				c.Mutex.Unlock()
 			}
 		}
 	}
@@ -76,28 +77,30 @@ func (c *Coordinator) PushTask(args *TaskRequest, reply *TaskReply) error {
 	reply.MaxMaps = c.MaxMaps
 	reply.MaxReduces = c.MaxReduces
 
-	c.Mutex.Unlock()
-
 	return nil
 }
 
 func (c *Coordinator) GetFinish(args *FinishRequest, reply *FinishReply) error { 
 	//the data race happended. why the MUTEX not work? I don't Know the reason after debugging once by once
-	c.Mutex.Lock()
+	
 	if len(c.MapFinish) != c.MaxMaps {
 		c.MapFinish <- true
+		c.Mutex.Lock()
 		c.CurMapT[args.Id].State = 2
 		if (len(c.MapFinish) == c.MaxMaps){
 			c.State = 1
 		}
+		c.Mutex.Unlock()
+
 	}else if len(c.ReduceFinish) != c.MaxReduces {
 		c.ReduceFinish <- true
+		c.Mutex.Lock()
 		c.CurReduceT[args.Id].State = 2
 		if (len(c.ReduceFinish) == c.MaxReduces){
 			c.State = 2
 		}
+		c.Mutex.Unlock()
 	}
-	c.Mutex.Unlock()
 	return nil
 }
 
@@ -176,7 +179,6 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	for i:= 0; i<nReduce; i++ {
 		c.ReduceT <- TaskInfo{ReduceId: i, State: 0}
 	} 
-
 
 	c.server()
 	return &c
