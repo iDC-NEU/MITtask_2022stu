@@ -7,7 +7,8 @@ import (
 	"log"
 	"strconv"
 	"strings"
-	// "time"
+	"time"
+	"sync"
 )
 
 
@@ -16,7 +17,10 @@ import "os"
 import "net/rpc"
 import "net/http"
 
-var signal  =1 	//用于并发控制worker访问coordinator
+var signal  =1 	//用于并发控制worker访问coordinator 信号量控制并发可能会出错，这里使用更方便的互斥锁
+var (
+	mu sync.Mutex
+)
 type Coordinator struct {
 	// Your definitions here.
 	TaskId int									//任务的id
@@ -29,6 +33,7 @@ type Coordinator struct {
 	ReduceTaskMap map[int]*TaskInfo		////保存reduce任务的各种信息，用于判断stage改变和crash处理
 }
 type TaskInfo struct{
+	StartTime time.Time  		//在taskinfo内添加time，同于检测是否有超时的任务
 	state TaskState
 	TaskAddr *Task
 }
@@ -98,6 +103,10 @@ func(c *Coordinator)changeStage() {
 
 //添加对任务state的判断和更改，并据此调整stage
 func(c *Coordinator)DisTask(args *Task,reply *Task) error {
+	//使用互斥锁保证并发
+	mu.Lock()
+	//defer表示在当前函数执行完成后才会执行defer后面的函数 即释放互斥锁
+	defer mu.Unlock()
 	if signal==1{
 		signal=0
 		switch(c.Stage){
@@ -105,7 +114,12 @@ func(c *Coordinator)DisTask(args *Task,reply *Task) error {
 			{
 				if len(c.MapTaskCh)>0{
 					*reply=*<-c.MapTaskCh
+					reply.TaskState = Running
+					c.MapTaskMap[reply.TaskId].state=Running
+					c.MapTaskMap[reply.TaskId].TaskAddr=reply
+					c.MapTaskMap[reply.TaskId].StartTime = time.Now()
 					fmt.Println("Map task内容:",reply)
+					// fmt.Println("map内容:",c.MapTaskMap[reply.TaskId].TaskAddr)
 					fmt.Println("id为",(*reply).TaskId," 的任务已被分配！")
 				}else{
 					signal = 1
@@ -115,6 +129,7 @@ func(c *Coordinator)DisTask(args *Task,reply *Task) error {
 						c.changeStage()
 						fmt.Println("进入reduce阶段!")
 					}
+					
 					return nil
 				}
 			}
@@ -122,6 +137,10 @@ func(c *Coordinator)DisTask(args *Task,reply *Task) error {
 			{
 				if len(c.ReduceTaskCh)>0{
 					*reply=*<-c.ReduceTaskCh
+					reply.TaskState = Running
+					c.ReduceTaskMap[reply.TaskId].state=Running
+					c.ReduceTaskMap[reply.TaskId].TaskAddr=reply
+					c.ReduceTaskMap[reply.TaskId].StartTime = time.Now()
 					fmt.Println("Reduce task内容:",reply)
 					fmt.Println("id为",(*reply).TaskId," 的任务已被分配！")
 				}else{
@@ -132,6 +151,7 @@ func(c *Coordinator)DisTask(args *Task,reply *Task) error {
 						c.changeStage()
 						fmt.Println("进入结束阶段!")
 					}
+				
 					return nil
 				}
 			}
@@ -147,6 +167,8 @@ func(c *Coordinator)DisTask(args *Task,reply *Task) error {
 }
 
 func(c *Coordinator)Finish(args *Task,reply *Task) error{
+	mu.Lock()
+	defer mu.Unlock()
 	if signal==1{
 		signal = 0
 		id:=args.TaskId
@@ -154,6 +176,7 @@ func(c *Coordinator)Finish(args *Task,reply *Task) error{
 	
 		// }
 		if c.Stage == MapStage{
+			// fmt.Println( c.MapTaskMap[id].TaskAddr)
 			if c.MapTaskMap[id].TaskAddr.TaskState == Running {
 				c.MapTaskMap[id].state=Done
 				c.MapTaskMap[id].TaskAddr.TaskState =Done
@@ -198,6 +221,8 @@ func (c *Coordinator) server() {
 //
 func (c *Coordinator) Done() bool {
 	ret := false
+	mu.Lock()
+	defer mu.Unlock()
 	if signal == 1 {
 		signal = 0
 		if c.Stage == FinishedStage {
@@ -212,36 +237,93 @@ func (c *Coordinator) Done() bool {
 	return ret
 }
 
+func (c *Coordinator) CrashDetector() {
+	for {
+		//每隔2s 检查一次当前阶段的TaskMap 计算处于Running任务的耗时，如果耗时超过9s则将该任务状态重置为Free
+		//并再次放入对应的channel中等待被worker调用
+		time.Sleep(time.Second * 2)
+		mu.Lock()
+		if c.Stage == FinishedStage {
+			mu.Unlock()
+			break
+		}
+		if c.Stage == MapStage{
+			for _, v := range c.MapTaskMap {
+
+				// fmt.Println("v:",v,"details:",v.TaskAddr)
+				if v.state == Running && time.Since(v.StartTime) > 9*time.Second {
+					// fmt.Printf("the task[ %d ] is crash,take [%d] s\n", v.TaskAddr.TaskId, time.Since(v.StartTime))
+	
+					switch v.TaskAddr.TaskType {
+					case MapTask:
+						c.MapTaskCh <- v.TaskAddr
+						v.state = Free
+						v.TaskAddr.TaskState = Free
+				
+					}
+				}
+			}
+		}else if c.Stage == ReduceStage {
+			for _, m := range c.ReduceTaskMap {
+
+				// fmt.Println("m:",m,"details:",m.TaskAddr)
+				if m.state == Running && time.Since(m.StartTime) > 9*time.Second {
+					// fmt.Printf("the task[ %d ] is crash,take [%d] s\n", m.TaskAddr.TaskId, time.Since(m.StartTime))
+	
+					switch m.TaskAddr.TaskType {
+					case ReduceTask:
+						c.ReduceTaskCh <- m.TaskAddr
+						m.state = Free
+						m.TaskAddr.TaskState = Free
+	
+					}
+				}
+			}
+		}
+		
+
+
+
+		mu.Unlock()
+	}
+
+}
+
+
 //
 // create a Coordinator.
 // main/mrcoordinator.go calls this function.
 // nReduce is the number of reduce tasks to use.
 //
 func MakeCoordinator(files []string, nReduce int) *Coordinator {
-	fmt.Println("nReduce:",nReduce)
+	// fmt.Println("nReduce:",nReduce)
 	c := Coordinator{
 		Stage:MapStage,
 		ReduceNum:nReduce,
 		files:files,
-		MapTaskCh:make(chan *Task,len(files)),
-		ReduceTaskCh:make(chan *Task,nReduce),
+		MapTaskCh:make(chan *Task,len(files)*2),
+		ReduceTaskCh:make(chan *Task,nReduce*2),
 		MapTaskMap:make(map[int]*TaskInfo,len(files)),
 		ReduceTaskMap:make(map[int]*TaskInfo,nReduce),
 	}
 
 	// Your code here.
+	// fmt.Println("Reducenum:",nReduce)
 	c.getMapTasks(files)
 
 	c.server()
+	//设置一个新的函数 在coordinator退出之前每隔一定时间检查当前阶段TaskMap中所有处于Running状态的任务耗时，并对超时的任务做出相应处理
+	go c.CrashDetector()
 	return &c
 }
 
 func(c *Coordinator)getMapTasks(files []string){
 	for _,i := range files{
 		id:=c.TaskId
-		fmt.Println("id是:",id,"nReduce是:",c.ReduceNum)
+		// fmt.Println("id是:",id,"nReduce是:",c.ReduceNum)
 		c.TaskId++
 		task:=Task{
+			TaskState:Free,
 			TaskType:MapTask,
 			TaskId:id,
 			nReduce:c.ReduceNum,
@@ -277,6 +359,7 @@ func getReduceFile(i int) []string{
 func(c *Coordinator)getReduceTasks(){
 	for i:=0;i<c.ReduceNum;i++{
 		task:=Task{
+			TaskState:Free,
 			TaskType:ReduceTask,
 			TaskId:i,
 			nReduce:c.ReduceNum,

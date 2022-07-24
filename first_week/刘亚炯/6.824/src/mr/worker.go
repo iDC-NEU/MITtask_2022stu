@@ -164,6 +164,7 @@ func sortContent(files []string) []KeyValue {
 func DoFinish(task *Task){
 	args := task
 	reply := Task{}
+	fmt.Println("Do finish:",args)
 	ok := call("Coordinator.Finish",args,&reply)
 	if ok && task.TaskType == MapTask{
 		fmt.Println("任务id为",task.TaskId," 的map任务已经完成!")
