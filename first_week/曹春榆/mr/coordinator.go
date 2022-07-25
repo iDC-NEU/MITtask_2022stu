@@ -55,6 +55,7 @@ type Coordinator struct {
 	reduceTaskDone []bool
 
 	waitListMutex  sync.Mutex
+	confirmMutex   sync.Mutex
 	waitWorkIdList *list.List
 }
 
@@ -193,10 +194,14 @@ func (c *Coordinator) confirmWork(doneId int) {
 	switch c.jobPhase {
 	case MapPhase:
 		c.mapTaskDone[doneId] = true
+		c.confirmMutex.Lock()
 		c.mapDoneNum += 1
+		c.confirmMutex.Unlock()
 	case ReducePhase:
 		c.reduceTaskDone[doneId] = true
+		c.confirmMutex.Lock()
 		c.reduceDoneNum += 1
+		c.confirmMutex.Unlock()
 	}
 }
 

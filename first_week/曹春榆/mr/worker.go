@@ -86,8 +86,8 @@ func doMap(taskInfo TaskInfo, nReduce int, mapf func(string, string) []KeyValue)
 }
 
 func writeToMapFile(taskId int, intermediate []KeyValue, nReduce int) {
-	mapFiles := make([]*os.File, 10)
-	for i := 0; i < 10; i++ {
+	mapFiles := make([]*os.File, nReduce)
+	for i := 0; i < nReduce; i++ {
 		interFileName := fmt.Sprintf("mr-%d-%d", taskId, i)
 		mapFiles[i], _ = os.Create(interFileName)
 		defer mapFiles[i].Close()
@@ -134,13 +134,11 @@ func readMapFiles(taskInfo TaskInfo, nMap int) []KeyValue {
 	var kva []KeyValue
 	for j := 0; j < nMap; j++ {
 		fileName := fmt.Sprintf("mr-%d-%d", j, taskInfo.TaskId)
-		// 该reduce任务对应的中间文件名
 		file, err := os.Open(fileName)
 		if err != nil {
 			log.Fatalf("cannot open %v", fileName)
 		}
 		dec := json.NewDecoder(file)
-		// 读取文件内容
 		for {
 			var kv KeyValue
 			if err := dec.Decode(&kv); err != nil {
