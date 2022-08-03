@@ -1,1 +1,17 @@
+lab2A 主要完成leader选举 
+基本要处理的事件主要有以下几个：
+term为0的时候也就是第一个回合如何进行选举
+leader任期结束如何处理
+follower收到heartbeat如何处理以及回应
+收到投票请求的term比自己的term大如何处理
+
+lab2B 主要完成日志的复制
+基本逻辑是：leader收到client的请求，于是leader会通知follower进行日志更新，如果超过半数follower回应，则更新成功，需要进一步处理
+本质就是基于lab2A来完成
+虽然逻辑上不难，但是具体代码的实施却很困难，会有各种细节和问题出现
+
+lab2c 主要完成持久化
+主要任务是对currentterm，[]log，voteFor 进行持久化存储
+
+当前代码还有不少问题，明显感觉到lab2比lab1难了不少，后续还需要对lab2进行改动
 
