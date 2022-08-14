@@ -8,14 +8,12 @@ package raft
 // test with the original before submitting.
 //
 
-import (
-	"fmt"
-	"math/rand"
-	"sync"
-	"sync/atomic"
-	"testing"
-	"time"
-)
+import "testing"
+import "fmt"
+import "time"
+import "math/rand"
+import "sync/atomic"
+import "sync"
 
 // The tester generously allows solutions to complete elections in one second
 // (much more than the paper's range of timeouts).
@@ -63,6 +61,7 @@ func TestReElection2A(t *testing.T) {
 
 	// if the leader disconnects, a new one should be elected.
 	cfg.disconnect(leader1)
+	DPrintln("\n\nleader", leader1, "被下线了")
 	cfg.checkOneLeader()
 
 	// if the old leader rejoins, that shouldn't
@@ -581,6 +580,7 @@ func TestCount2B(t *testing.T) {
 
 	rpcs := func() (n int) {
 		for j := 0; j < servers; j++ {
+			DPrintln("机器", j, "发送的RPC数量", cfg.rpcCount(j))
 			n += cfg.rpcCount(j)
 		}
 		return
@@ -664,6 +664,7 @@ loop:
 		break
 	}
 
+	DPrintln("\n\ntotal 2:", total2, "real:", rpcs())
 	if !success {
 		t.Fatalf("term changed too often")
 	}
@@ -674,6 +675,8 @@ loop:
 	for j := 0; j < servers; j++ {
 		total3 += cfg.rpcCount(j)
 	}
+
+	DPrintln("\n\ntotal 3:", total3, rpcs())
 
 	if total3-total2 > 3*20 {
 		t.Fatalf("too many RPCs (%v) for 1 second of idleness\n", total3-total2)
@@ -846,6 +849,7 @@ func TestFigure82C(t *testing.T) {
 		if leader != -1 {
 			cfg.crash1(leader)
 			nup -= 1
+			DPrintln("\n\nleader", leader, "被下线, 活跃机器数量为:", nup)
 		}
 
 		if nup < 3 {
@@ -854,6 +858,7 @@ func TestFigure82C(t *testing.T) {
 				cfg.start1(s, cfg.applier)
 				cfg.connect(s)
 				nup += 1
+				DPrintln("\n\n唤醒的机器为：", s, "活跃机器数量为:", nup)
 			}
 		}
 	}
@@ -914,7 +919,7 @@ func TestFigure8Unreliable2C(t *testing.T) {
 	raftStartTime := int64(0)
 	disConnectTime := int64(0)
 	for iters := 0; iters < 1000; iters++ {
-		// fmt.Println("\n\n测试", iters, "开始")
+		//fmt.Println("\n\n测试", iters, "开始")
 		if iters == 200 {
 			start := time.Now().UnixMilli()
 			cfg.setlongreordering(true)
@@ -945,30 +950,30 @@ func TestFigure8Unreliable2C(t *testing.T) {
 			cfg.disconnect(leader)
 			nup -= 1
 		}
-		// fmt.Println("leader", leader, "被下线了，活着的数量为：", nup)
+		//fmt.Println("leader", leader, "被下线了，活着的数量为：", nup)
 		disStart := time.Now().UnixMilli()
 		if nup < 3 {
 			s := rand.Int() % servers
 			if cfg.connected[s] == false {
-				// fmt.Println("服务器", s, "上线了")
+				//fmt.Println("服务器", s, "上线了")
 				cfg.connect(s)
 				nup += 1
 			}
 		}
 		disConnectTime += time.Now().UnixMilli() - disStart
-		// fmt.Println("测试", iters, "结束")
+		fmt.Println("测试", iters, "结束")
 	}
-	// fmt.Println("setlongreorderingTime:", setlongreorderingTime)
-	// fmt.Println("raftStartTime:", raftStartTime)
-	// fmt.Println("disConnectTime:", disConnectTime)
-	// fmt.Println("总睡眠时间为", sleepTime)
+	fmt.Println("setlongreorderingTime:", setlongreorderingTime)
+	fmt.Println("raftStartTime:", raftStartTime)
+	fmt.Println("disConnectTime:", disConnectTime)
+	fmt.Println("总睡眠时间为", sleepTime)
 
 	for i := 0; i < servers; i++ {
 		if cfg.connected[i] == false {
 			cfg.connect(i)
 		}
 	}
-	// fmt.Println("所有服务器上线完成，开始检测")
+	fmt.Println("所有服务器上线完成，开始检测")
 
 	cfg.one(rand.Int()%10000, servers, true)
 
@@ -1155,6 +1160,7 @@ func snapcommon(t *testing.T, name string, disconnect bool, reliable bool, crash
 		}
 		if crash {
 			cfg.crash1(victim)
+			DPrintln("\n\n机器", victim, "被关闭")
 			cfg.one(rand.Int(), servers-1, true)
 		}
 
@@ -1187,6 +1193,7 @@ func snapcommon(t *testing.T, name string, disconnect bool, reliable bool, crash
 		if crash {
 			cfg.start1(victim, cfg.applierSnap)
 			cfg.connect(victim)
+			DPrintln("\n\n机器", victim, "被启动")
 			cfg.one(rand.Int(), servers, true)
 			leader1 = cfg.checkOneLeader()
 		}
