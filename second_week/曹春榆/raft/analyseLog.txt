@@ -1,0 +1,154 @@
+Test (2B): concurrent Start()s ...
+2 持久化的log： [{<nil> -1}]
+2 持久化的log： [{<nil> -1}]
+1 持久化的log： [{<nil> -1}]
+0 持久化的log： [{<nil> -1}]
+
+
+ 2 成为了任期 1 的leader
+leader 2 的log为 [{<nil> -1}]
+2 持久化的log： [{<nil> -1}]
+2 持久化的log： [{<nil> -1} {1 1}]
+2 发送给 1 [{1 1}] 长度： 1 log总长 2 PrevLogTerm: -1 PrevLogIndex 0 机器总数为： 3 nextIndex:  1
+2 发送给 0 [{1 1}] 长度： 1 log总长 2 PrevLogTerm: -1 PrevLogIndex 0 机器总数为： 3 nextIndex:  1
+1 的log： 1 收到log [{1 1}] 1 1
+1 持久化时log [{<nil> -1} {1 1}]
+0 的log： 1 收到log [{1 1}] 1 1
+0 持久化时log [{<nil> -1} {1 1}]
+0 持久化的log： [{<nil> -1} {1 1}]
+follower 0 写入成功,  leader id 2 ， logs长度为： 2 commitId为: 0 leader commitId 0 添加的log为 [{1 1}] 前一个Term -1 前一个Index 0
+follower 0 添加完成之后的log： [{<nil> -1} {1 1}]
+labgob warning: Decoding into a non-default variable/field NeedTerm may not work
+1 持久化的log： [{<nil> -1} {1 1}]
+2 收到 0 reply: currentTerm 1 replyTerm 1 true needTerm: 1 needIndex: 1 是否超时： false
+leader 2 收到 0 应答成功
+leader 2 写入成功, commitId为： 1 logs为： 2
+leader 2 的log为： [{<nil> -1} {1 1}]
+follower 1 写入成功,  leader id 2 ， logs长度为： 2 commitId为: 0 leader commitId 0 添加的log为 [{1 1}] 前一个Term -1 前一个Index 0
+follower 1 添加完成之后的log： [{<nil> -1} {1 1}]
+2 持久化的log： [{<nil> -1} {1 1} {101 1}]
+2 收到 1 reply: currentTerm 1 replyTerm 1 true needTerm: 1 needIndex: 1 是否超时： false
+leader 2 收到 1 应答成功
+2 发送给 1 [{1 1} {101 1}] 长度： 2 log总长 3 PrevLogTerm: -1 PrevLogIndex 0 机器总数为： 3 nextIndex:  1
+2 发送给 0 [{101 1}] 长度： 1 log总长 3 PrevLogTerm: 1 PrevLogIndex 1 机器总数为： 3 nextIndex:  2
+0 的log： 2 收到log [{101 1}] 1 1
+0 持久化时log [{<nil> -1} {1 1} {101 1}]
+0 持久化的log： [{<nil> -1} {1 1} {101 1}]
+follower 0 写入成功,  leader id 2 ， logs长度为： 3 commitId为: 0 leader commitId 1 添加的log为 [{101 1}] 前一个Term 1 前一个Index 1
+follower 0 添加完成之后的log： [{<nil> -1} {1 1} {101 1}]
+follower 0 lastCommit 0 收到leader 2 任期 1 leader提交 1 logs [{101 1}] 前一个Term 1 前一个Index 1 logs总长 3
+follower 0 在任期 1 commitId为 1 的log为： [{<nil> -1} {1 1} {101 1}]
+2 收到 0 reply: currentTerm 1 replyTerm 1 true needTerm: 1 needIndex: 2 是否超时： false
+leader 2 收到 0 应答成功
+1 的log： 2 收到log [{1 1} {101 1}] 1 1
+1 持久化时log [{<nil> -1} {1 1} {101 1}]
+1 持久化的log： [{<nil> -1} {1 1} {101 1}]
+follower 1 写入成功,  leader id 2 ， logs长度为： 3 commitId为: 0 leader commitId 1 添加的log为 [{1 1} {101 1}] 前一个Term -1 前一个Index 0
+follower 1 添加完成之后的log： [{<nil> -1} {1 1} {101 1}]
+follower 1 lastCommit 0 收到leader 2 任期 1 leader提交 1 logs [{1 1} {101 1}] 前一个Term -1 前一个Index 0 logs总长 3
+follower 1 在任期 1 commitId为 1 的log为： [{<nil> -1} {1 1} {101 1}]
+2 收到 1 reply: currentTerm 1 replyTerm 1 true needTerm: 1 needIndex: 1 是否超时： false
+leader 2 收到 1 应答成功
+leader 2 写入成功, commitId为： 2 logs为： 3
+leader 2 的log为： [{<nil> -1} {1 1} {101 1}]
+2 持久化的log： [{<nil> -1} {1 1} {101 1} {104 1}]
+2 发送给 1 [{104 1}] 长度： 1 log总长 4 PrevLogTerm: 1 PrevLogIndex 2 机器总数为： 3 nextIndex:  3
+2 发送给 0 [{104 1}] 长度： 1 log总长 4 PrevLogTerm: 1 PrevLogIndex 2 机器总数为： 3 nextIndex:  3
+1 的log： 3 收到log [{104 1}] 1 1
+1 持久化时log [{<nil> -1} {1 1} {101 1} {104 1}]
+1 持久化的log： [{<nil> -1} {1 1} {101 1} {104 1}]
+follower 1 写入成功,  leader id 2 ， logs长度为： 4 commitId为: 1 leader commitId 2 添加的log为 [{104 1}] 前一个Term 1 前一个Index 2
+follower 1 添加完成之后的log： [{<nil> -1} {1 1} {101 1} {104 1}]
+follower 1 lastCommit 1 收到leader 2 任期 1 leader提交 2 logs [{104 1}] 前一个Term 1 前一个Index 2 logs总长 4
+follower 1 在任期 1 commitId为 2 的log为： [{<nil> -1} {1 1} {101 1} {104 1}]
+0 的log： 3 收到log [{104 1}] 1 1
+0 持久化时log [{<nil> -1} {1 1} {101 1} {104 1}]
+0 持久化的log： [{<nil> -1} {1 1} {101 1} {104 1}]
+follower 0 写入成功,  leader id 2 ， logs长度为： 4 commitId为: 1 leader commitId 2 添加的log为 [{104 1}] 前一个Term 1 前一个Index 2
+follower 0 添加完成之后的log： [{<nil> -1} {1 1} {101 1} {104 1}]
+follower 0 lastCommit 1 收到leader 2 任期 1 leader提交 2 logs [{104 1}] 前一个Term 1 前一个Index 2 logs总长 4
+follower 0 在任期 1 commitId为 2 的log为： [{<nil> -1} {1 1} {101 1} {104 1}]
+2 收到 1 reply: currentTerm 1 replyTerm 1 true needTerm: 1 needIndex: 3 是否超时： false
+leader 2 收到 1 应答成功
+leader 2 写入成功, commitId为： 3 logs为： 4
+leader 2 的log为： [{<nil> -1} {1 1} {101 1} {104 1}]
+2 持久化的log： [{<nil> -1} {1 1} {101 1} {104 1} {102 1}]
+2 收到 0 reply: currentTerm 1 replyTerm 1 true needTerm: 1 needIndex: 3 是否超时： false
+leader 2 收到 0 应答成功
+2 发送给 1 [{102 1}] 长度： 1 log总长 5 PrevLogTerm: 1 PrevLogIndex 3 机器总数为： 3 nextIndex:  4
+1 的log： 4 收到log [{102 1}] 1 1
+1 持久化时log [{<nil> -1} {1 1} {101 1} {104 1} {102 1}]
+1 持久化的log： [{<nil> -1} {1 1} {101 1} {104 1} {102 1}]
+follower 1 写入成功,  leader id 2 ， logs长度为： 5 commitId为: 2 leader commitId 3 添加的log为 [{102 1}] 前一个Term 1 前一个Index 3
+follower 1 添加完成之后的log： [{<nil> -1} {1 1} {101 1} {104 1} {102 1}]
+follower 1 lastCommit 2 收到leader 2 任期 1 leader提交 3 logs [{102 1}] 前一个Term 1 前一个Index 3 logs总长 5
+follower 1 在任期 1 commitId为 3 的log为： [{<nil> -1} {1 1} {101 1} {104 1} {102 1}]
+2 发送给 0 [{102 1}] 长度： 1 log总长 5 PrevLogTerm: 1 PrevLogIndex 3 机器总数为： 3 nextIndex:  4
+2 收到 1 reply: currentTerm 1 replyTerm 1 true needTerm: 1 needIndex: 4 是否超时： false
+leader 2 收到 1 应答成功
+leader 2 写入成功, commitId为： 4 logs为： 5
+leader 2 的log为： [{<nil> -1} {1 1} {101 1} {104 1} {102 1}]
+2 持久化的log： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1}]
+0 的log： 4 收到log [{102 1}] 1 1
+0 持久化时log [{<nil> -1} {1 1} {101 1} {104 1} {102 1}]
+0 持久化的log： [{<nil> -1} {1 1} {101 1} {104 1} {102 1}]
+2 发送给 0 [{102 1} {103 1}] 长度： 2 log总长 6 PrevLogTerm: 1 PrevLogIndex 3 机器总数为： 3 nextIndex:  4
+follower 0 写入成功,  leader id 2 ， logs长度为： 5 commitId为: 2 leader commitId 3 添加的log为 [{102 1}] 前一个Term 1 前一个Index 3
+follower 0 添加完成之后的log： [{<nil> -1} {1 1} {101 1} {104 1} {102 1}]
+follower 0 lastCommit 2 收到leader 2 任期 1 leader提交 3 logs [{102 1}] 前一个Term 1 前一个Index 3 logs总长 5
+follower 0 在任期 1 commitId为 3 的log为： [{<nil> -1} {1 1} {101 1} {104 1} {102 1}]
+0 的log： 5 收到log [{102 1} {103 1}] 1 1
+0 持久化时log [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1}]
+0 持久化的log： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1}]
+follower 0 写入成功,  leader id 2 ， logs长度为： 6 commitId为: 3 leader commitId 4 添加的log为 [{102 1} {103 1}] 前一个Term 1 前一个Index 3
+follower 0 添加完成之后的log： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1}]
+follower 0 lastCommit 3 收到leader 2 任期 1 leader提交 4 logs [{102 1} {103 1}] 前一个Term 1 前一个Index 3 logs总长 6
+follower 0 在任期 1 commitId为 4 的log为： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1}]
+2 收到 0 reply: currentTerm 1 replyTerm 1 true needTerm: 1 needIndex: 4 是否超时： false
+leader 2 收到 0 应答成功
+leader 2 写入成功, commitId为： 5 logs为： 6
+leader 2 的log为： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1}]
+2 持久化的log： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1} {100 1}]
+2 发送给 1 [{103 1} {100 1}] 长度： 2 log总长 7 PrevLogTerm: 1 PrevLogIndex 4 机器总数为： 3 nextIndex:  5
+2 发送给 1 [{103 1}] 长度： 1 log总长 6 PrevLogTerm: 1 PrevLogIndex 4 机器总数为： 3 nextIndex:  5
+2 发送给 0 [{100 1}] 长度： 1 log总长 7 PrevLogTerm: 1 PrevLogIndex 5 机器总数为： 3 nextIndex:  6
+1 的log： 5 收到log [{103 1} {100 1}] 1 1
+1 持久化时log [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1} {100 1}]
+1 持久化的log： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1} {100 1}]
+2 收到 0 reply: currentTerm 1 replyTerm 1 true needTerm: 1 needIndex: 4 是否超时： false
+leader 2 收到 0 应答成功
+follower 1 写入成功,  leader id 2 ， logs长度为： 7 commitId为: 3 leader commitId 5 添加的log为 [{103 1} {100 1}] 前一个Term 1 前一个Index 4
+follower 1 添加完成之后的log： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1} {100 1}]
+0 的log： 6 收到log [{100 1}] 1 1
+0 持久化时log [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1} {100 1}]
+0 持久化的log： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1} {100 1}]
+follower 0 写入成功,  leader id 2 ， logs长度为： 7 commitId为: 4 leader commitId 5 添加的log为 [{100 1}] 前一个Term 1 前一个Index 5
+follower 0 添加完成之后的log： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1} {100 1}]
+follower 0 lastCommit 4 收到leader 2 任期 1 leader提交 5 logs [{100 1}] 前一个Term 1 前一个Index 5 logs总长 7
+follower 0 在任期 1 commitId为 5 的log为： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1} {100 1}]
+follower 1 lastCommit 3 收到leader 2 任期 1 leader提交 5 logs [{103 1} {100 1}] 前一个Term 1 前一个Index 4 logs总长 7
+follower 1 在任期 1 commitId为 5 的log为： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1} {100 1}]
+1 的log： 7 收到log [{103 1}] 1 1
+1 持久化时log [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1}]
+1 持久化的log： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1}]
+2 收到 1 reply: currentTerm 1 replyTerm 1 true needTerm: 1 needIndex: 5 是否超时： false
+leader 2 收到 1 应答成功
+leader 2 写入成功, commitId为： 6 logs为： 7
+leader 2 的log为： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1} {100 1}]
+follower 1 写入成功,  leader id 2 ， logs长度为： 6 commitId为: 5 leader commitId 4 添加的log为 [{103 1}] 前一个Term 1 前一个Index 4
+follower 1 添加完成之后的log： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1}]
+follower 1 lastCommit 5 收到leader 2 任期 1 leader提交 4 logs [{103 1}] 前一个Term 1 前一个Index 4 logs总长 6
+follower 1 在任期 1 commitId为 4 的log为： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1}]
+2 收到 0 reply: currentTerm 1 replyTerm 1 true needTerm: 1 needIndex: 6 是否超时： false
+leader 2 收到 0 应答成功
+2 收到 1 reply: currentTerm 1 replyTerm 1 true needTerm: 1 needIndex: 5 是否超时： false
+leader 2 收到 1 应答成功
+follower 1 lastCommit 4 收到leader 2 任期 1 leader提交 6 logs [] 前一个Term 1 前一个Index 5 logs总长 6
+follower 0 lastCommit 5 收到leader 2 任期 1 leader提交 6 logs [] 前一个Term 1 前一个Index 6 logs总长 7
+follower 0 在任期 1 commitId为 6 的log为： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1} {100 1}]
+follower 1 在任期 1 commitId为 5 的log为： [{<nil> -1} {1 1} {101 1} {104 1} {102 1} {103 1}]
+--- FAIL: TestConcurrentStarts2B (31.21s)
+    config.go:548: only 2 decided for index 6; wanted 3
+FAIL
+exit status 1
+FAIL	6.824/raft	31.218s

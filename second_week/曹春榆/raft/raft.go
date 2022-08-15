@@ -85,6 +85,7 @@ type Raft struct {
 	unsupportNum      int        // 不支持的人数
 	voteMutex         sync.Mutex // 投票的mutex
 	leaderId          int        // leader的id
+	electFailNum      int        // 选举失败次数
 
 	logMutex sync.RWMutex // 对于log的读写锁
 
@@ -113,6 +114,7 @@ func (rf *Raft) init(applyCh chan ApplyMsg) {
 	rf.lastApplied = 0
 	rf.logs.Init()
 	rf.leaderId = -1
+	rf.electFailNum = 1
 
 	rf.nextIndex = make([]int, len(rf.peers))
 	rf.matchIndex = make([]int, len(rf.peers))

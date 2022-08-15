@@ -50,8 +50,11 @@ func (rf *Raft) ticker() {
 			if !rf.canElection {
 				rf.tryElection()
 			} else {
-				DPrintln("lastHeartBeatTime", rf.lastHeartBeatTime, "now", time.Now().UnixMilli())
-				rf.election()
+				rf.electFailNum++
+				DPrintln("elect fail num", rf.electFailNum, "lastHeartBeatTime", rf.lastHeartBeatTime, "now", time.Now().UnixMilli())
+				if rf.electFailNum%3 != 0 {
+					rf.election()
+				}
 			}
 			rf.mu.Unlock()
 			//if rf.canElection || rf.tryElection() {
@@ -125,7 +128,8 @@ func (rf *Raft) getNeedSupport(needNum int, isTryElect bool) bool {
 			voteReply := RequestVoteReply{}
 			startTime := time.Now().UnixMilli()
 			ok := rf.sendRequestVote(i, &voteArgs, &voteReply)
-			DPrintln(rf.me, "收到", i, "投票时间：", time.Now().UnixMilli()-startTime, time.Now().UnixMilli(), "是否支持", voteReply.VoteGranted, "ok", ok)
+			DPrintln(rf.me, "收到", i, "投票时间：", time.Now().UnixMilli()-startTime, time.Now().UnixMilli(), "是否支持",
+				voteReply.VoteGranted, "ok", ok, "isTry", isTryElect)
 			DPrintln("old term", currentTerm, "new term", rf.currentTerm, "need:", needNum)
 			if ok {
 				rf.mu.Lock()
@@ -196,6 +200,7 @@ func (rf *Raft) resetVotedFor() {
 }
 
 func (rf *Raft) initLeaderInfo() {
+	rf.electFailNum = 1
 	rf.supportNum = 1
 	rf.unsupportNum = 0
 	rf.isLeader = true
@@ -212,6 +217,7 @@ func (rf *Raft) initLeaderInfo() {
 func (rf *Raft) initFollowerInfo() {
 	rf.isLeader = false
 	rf.votedFor = -1
+	rf.persist()
 	rf.supportNum = 1
 	rf.unsupportNum = 0
 	rf.canElection = false
@@ -229,7 +235,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	}
 	reply.Term = rf.currentTerm
 	if !args.IsTryElect && args.Term < rf.currentTerm {
-		DPrintln(rf.me, "因为args.Term < rf.currentTerm", args.Term, rf.currentTerm, "所以不投票给", args.CandidateId)
+		DPrintln(rf.me, "因为args.Term < rf.currentTerm", args.Term, rf.currentTerm, "所以不投票给", args.CandidateId, "isTry", args.IsTryElect)
 		reply.VoteGranted = false
 		return
 	}
@@ -244,7 +250,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		return
 	}
 	if !args.IsTryElect && rf.votedFor != -1 {
-		DPrintln(rf.me, "投票给了", rf.votedFor, "所以不投票给", args.CandidateId)
+		DPrintln(rf.me, "投票给了", rf.votedFor, "所以不投票给", args.CandidateId, "isTry", args.IsTryElect)
 		reply.VoteGranted = false
 		return
 	}
@@ -260,7 +266,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	if args.LastLogTerm > rf.logs.GetLastLogTerm() ||
 		(args.LastLogTerm == rf.logs.GetLastLogTerm() && args.LastLogIndex >= rf.logs.GetLastLogIndex()) {
 		//rf.lastHeartBeatTime = time.Now().UnixMilli()
-		DPrintln(rf.me, "因为args raft term, index", args.LastLogTerm, rf.logs.GetLastLogTerm(), args.LastLogIndex, rf.logs.GetLastLogIndex(), "投票给", args.CandidateId)
+		DPrintln(rf.me, "因为args raft term, index", args.LastLogTerm, rf.logs.GetLastLogTerm(), args.LastLogIndex,
+			rf.logs.GetLastLogIndex(), "投票给", args.CandidateId, "isTry", args.IsTryElect)
 		if !args.IsTryElect {
 			rf.canElection = false
 			rf.currentTerm = args.Term
@@ -268,13 +275,14 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 			rf.persistMutex.Lock()
 			rf.persist()
 			rf.persistMutex.Unlock()
-			DPrintln(rf.me, "在任期", rf.currentTerm, "支持", args.CandidateId)
+			DPrintln(rf.me, "在任期", rf.currentTerm, "支持", args.CandidateId, "isTry", args.IsTryElect)
 		}
 		//rf.lastHeartBeatTime = time.Now().UnixMilli()
 		reply.VoteGranted = true
 		return
 	}
-	DPrintln(rf.me, "因为args raft term, index", args.LastLogTerm, rf.logs.GetLastLogTerm(), args.LastLogIndex, rf.logs.GetLastLogIndex(), "所以不投票给", args.CandidateId)
+	DPrintln(rf.me, "因为args raft term, index", args.LastLogTerm, rf.logs.GetLastLogTerm(), args.LastLogIndex,
+		rf.logs.GetLastLogIndex(), "所以不投票给", args.CandidateId, "isTry", args.IsTryElect)
 	reply.VoteGranted = false
 }
 

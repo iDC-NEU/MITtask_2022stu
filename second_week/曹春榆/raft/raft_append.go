@@ -1,6 +1,8 @@
 package raft
 
 import (
+	"6.824/labgob"
+	"bytes"
 	"time"
 )
 
@@ -84,12 +86,14 @@ func (rf *Raft) appendToFollower() {
 				}
 				reply := AppendEntriesReply{}
 				rf.mu.Unlock()
+				//startTime := time.Now().UnixMilli()
 				ok := rf.sendAppendEntries(followerId, &args, &reply)
 				DPrintln("leader", rf.me, "收到回复", reply)
 
 				if ok {
 					rf.mu.Lock()
 					defer rf.mu.Unlock()
+					rf.lastReceiveTime[followerId] = time.Now().UnixMilli()
 					if !rf.isLeader {
 						return
 					}
@@ -111,6 +115,23 @@ func (rf *Raft) appendToFollower() {
 					} else if !reply.Success {
 						rf.adjustSendIndex(followerId, reply.NeedTerm, reply.NeedIndex)
 						DPrintln("leader", rf.me, "修改了机器", followerId, "的next为", rf.nextIndex[followerId])
+					}
+				} else {
+					rf.mu.Lock()
+					defer rf.mu.Unlock()
+					unConnectNum := 0
+					nowTime := time.Now().UnixMilli()
+					for i := 0; i < len(rf.peers); i++ {
+						if i == rf.me {
+							continue
+						}
+						if nowTime-rf.lastReceiveTime[i] > MaxTimeout*2 {
+							unConnectNum++
+						}
+					}
+					if unConnectNum >= (len(rf.peers)/2 + 1) {
+						rf.initFollowerInfo()
+						return
 					}
 				}
 
@@ -211,6 +232,7 @@ func (rf *Raft) AppendLogEntries(args *AppendEntriesArgs, reply *AppendEntriesRe
 		"snap数量为", rf.logs.snapNum, "log长度为", rf.logs.Size(), "内容为", rf.logs.log)
 	DPrintln("机器", rf.me, "在任期", rf.currentTerm, "收到leader", args.LeaderId, "发送的", args.Entries)
 	//DPrintln("心跳lastHeartBeatTime", rf.lastHeartBeatTime)
+	rf.electFailNum = 1
 	rf.isStartElection = false
 	rf.supportNum = 1
 	rf.isLeader = false
@@ -257,6 +279,12 @@ func (rf *Raft) AppendLogEntries(args *AppendEntriesArgs, reply *AppendEntriesRe
 		rf.logs.WriteLogs(args.PrevLogIndex, args.Entries)
 		//rf.logs = append(rf.logs[:args.PrevLogIndex-rf.snapNums+1], args.Entries...)
 		DPrintln("机器", rf.me, "添加后的log为", rf.logs.log)
+
+		w := new(bytes.Buffer)
+		e := labgob.NewEncoder(w)
+		e.Encode(rf.logs.log)
+		DPrintln("机器", rf.me, "log长度为", len(w.Bytes()), "lastApplied", rf.lastApplied, "commit", rf.commitId)
+
 		rf.persistMutex.Lock()
 		rf.persist()
 		rf.persistMutex.Unlock()
@@ -276,22 +304,27 @@ func (rf *Raft) applyLogLoop() {
 		time.Sleep(10 * time.Millisecond)
 		var appliedMsgs = make([]ApplyMsg, 0)
 
-		func() {
-			//DPrintln(rf.me, "rf.commitId, rf.lastApplied", rf.commitId, rf.lastApplied)
-			for rf.commitId > rf.lastApplied && rf.lastApplied < rf.logs.Size() {
-				rf.lastApplied += 1
-				command := rf.logs.GetLog(rf.lastApplied).Command
-				appliedMsgs = append(appliedMsgs, ApplyMsg{
-					CommandValid: true,
-					Command:      command,
-					CommandIndex: rf.lastApplied,
-				})
-			}
-		}()
+		//func() {
+		DPrintln(rf.me, "rf.commitId, rf.lastApplied", rf.commitId, rf.lastApplied)
+		for rf.commitId > rf.lastApplied && rf.lastApplied < rf.logs.Size() {
+			rf.lastApplied += 1
+			command := rf.logs.GetLog(rf.lastApplied).Command
+			appliedMsgs = append(appliedMsgs, ApplyMsg{
+				CommandValid: true,
+				Command:      command,
+				CommandIndex: rf.lastApplied,
+			})
+		}
+		//}()
 		// 锁外提交给应用层
 		for _, msg := range appliedMsgs {
-			//DPrintln(rf.me, "提交了消息：", msg)
+
+			w := new(bytes.Buffer)
+			e := labgob.NewEncoder(w)
+			e.Encode(msg)
+			DPrintln(rf.me, "提交了消息, 长度为", len(w.Bytes()))
 			rf.applyCh <- msg
+			DPrintln(rf.me, "提交完成")
 		}
 	}
 }

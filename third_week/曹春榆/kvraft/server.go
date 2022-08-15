@@ -54,6 +54,7 @@ type KVServer struct {
 	clientLastCommand map[int64]int   // 记录client的最后提交的命令
 	lastCommandMutex  sync.RWMutex
 	lastIncludeIndex  int // snapshot中最后包含的索引
+	snapshotCh        chan raft.ApplyMsg
 
 	// Your definitions here.
 }
@@ -64,6 +65,7 @@ func (kv *KVServer) init() {
 	kv.indexCondCount = make(map[int]int)
 	kv.clientLastCommand = make(map[int64]int)
 	kv.lastIncludeIndex = 0
+	kv.snapshotCh = make(chan raft.ApplyMsg, 20)
 }
 
 func (kv *KVServer) setLastCommand(clientId int64, requestId int) {
@@ -118,8 +120,10 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 		// 如果得到的命令的标识和发送的一致，则证明该命令达成共识成功，否则，存在一个可能是该leader在命令提交前成为了follower
 		if op.ClientId == command.ClientId && op.RequestId == op.RequestId {
 			kv.mu.Lock()
+			DPrintln(kv.me, "enter get")
 			value, ok := kv.kvStore[op.Key]
-			kv.setLastCommand(op.ClientId, op.RequestId)
+			DPrintln(kv.me, "leave get")
+			//kv.setLastCommand(op.ClientId, op.RequestId)
 			kv.mu.Unlock()
 			reply.Err = OK
 			if ok {
@@ -201,18 +205,21 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 
 func (kv *KVServer) ExecuteCommand() {
 	for message := range kv.applyCh {
+		if kv.maxraftstate != -1 {
+			DPrintln(kv.me, "before snapshotCh")
+			kv.snapshotCh <- message
+			DPrintln(kv.me, "after snapshotCh")
+		}
 		index := message.CommandIndex
 		if message.CommandValid && message.Command != nil && message.CommandIndex > kv.lastIncludeIndex {
 			command := message.Command.(Op)
+			DPrintln(kv.me, "before executeAndPassCommand")
 			kv.executeAndPassCommand(command, index)
-			if kv.maxraftstate != -1 && kv.needToSnapshot() {
-				kv.snapshot(message.CommandIndex)
-			}
-		} else if message.SnapshotValid {
-			kv.ApplySnapshot(message)
+			DPrintln(kv.me, "after executeAndPassCommand")
 		}
 
 	}
+	DPrintln("\n\n", kv.me, "after range kv.applyCh")
 }
 
 //
@@ -237,8 +244,11 @@ func (kv *KVServer) killed() bool {
 }
 
 func (kv *KVServer) executeAndPassCommand(command Op, index int) {
+	DPrintln(kv.me, "enter executeAndPassCommand")
 	kv.mu.Lock()
+	DPrintln(kv.me, "before judgeCommandRepeat")
 	if !kv.isCommandRepeat(command.ClientId, command.RequestId) {
+		DPrintln(kv.me, "after isCommandRepeat")
 		if command.Operation == PutOperation {
 			kv.kvStore[command.Key] = command.Value
 		} else if command.Operation == AppendOperation {
@@ -249,15 +259,21 @@ func (kv *KVServer) executeAndPassCommand(command Op, index int) {
 				kv.kvStore[command.Key] = value + command.Value
 			}
 		}
+		DPrintln(kv.me, "after putAppend")
 		kv.setLastCommand(command.ClientId, command.RequestId)
+		DPrintln(kv.me, "after setLastCommand")
 	}
+	DPrintln(kv.me, "after judgeCommandRepeat")
 	kv.mu.Unlock()
-
+	DPrintln(kv.me, "after executeUnlock")
 	kv.indexCondMutex.RLock()
 	commandCh, ok := kv.indexCond[index]
 	kv.indexCondMutex.RUnlock()
+	DPrintln(kv.me, "after indexCondMutex")
 	if ok {
+		DPrintln("机器", kv.me, "before commandCh")
 		commandCh <- command
+		DPrintln("机器", kv.me, "after commandCh")
 	}
 }
 
@@ -293,6 +309,7 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	// You may need initialization code here.
 	kv.InstallSnapshot(persister.ReadSnapshot())
 	go kv.ExecuteCommand()
+	go kv.TakeSnapshot()
 
 	return kv
 }
