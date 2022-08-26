@@ -1,0 +1,4 @@
+Test (2A): initial election ...
+得到了term 1 的leader true
+signal: interrupt
+FAIL	6.824/raft	1.571s
